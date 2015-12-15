@@ -26,7 +26,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.8',
+            'version'  => '0.9.9',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -341,7 +341,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(!$this->uas_isValidSuperuser()) return false;
         $time = time();
         $ttl = (int)$this->data['uas_session_duration'];
-        $ttl = $ttl >= 2 && $ttl <= 60 ? $ttl : 5;
+        $ttl = $ttl >= 2 && $ttl <= 60 ? $ttl : 2;
         $endtime = $time + intval(60 * $ttl); // add minutes to current timestamp
         $data = serialize(array('fingerprint' => $this->uas_getFingerprint(), 'endtime' => $endtime));
         return strlen($data) === file_put_contents($this->uas_getFilename(), $data, LOCK_EX);
@@ -404,11 +404,12 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if($onlyLast) {
             return trim($_SERVER['REMOTE_ADDR']);
         }
-        foreach (array('HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR') as $key) {
+        foreach(array('HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR') as $key) {
             if(array_key_exists($key, $_SERVER) === true) {
                 foreach(explode(',', $_SERVER[$key]) as $ip) {
                     $ip = trim($ip); // just to be safe
-                    if(filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                    #if(filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                    if(filter_var($ip, FILTER_VALIDATE_IP) !== false) {
                         return $ip;
                     }
                 }
@@ -536,7 +537,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
                 break;
             case 'uas_session_duration':
                 $v = intval($v);
-                if($v < 2 || $v > 60) $v = 10; // set a default of 10 minutes
+                if($v < 2 || $v > 60) $v = 2; // set a default of 2 minutes
                 $isValid = true;
                 break;
 
