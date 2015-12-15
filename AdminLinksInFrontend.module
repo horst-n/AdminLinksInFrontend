@@ -16,23 +16,26 @@
 
 class AdminLinksInFrontend extends WireData implements Module, ConfigurableModule {
 
+    private static $pwv = '';
+    private static $pwvUAS = '2.6.8';
+    private static $pwvShowIf = '2.6.0';
+    private static $pwvRequires = '2.5.0';
 
     public static function getModuleInfo() {
-        if(version_compare(wire('config')->version, '2.6.8', '<')) {
-            $summary = __('Admin Helper, displays AdminLinks and small Information on the Frontend of the site!');
-        } else {
-            $summary = __('Admin Helper, displays AdminLinks, a fast UserSwitcher and small Information on the Frontend of the site!');
-        }
-        return array(
+        $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and one-click user switching!');
+        if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
+        $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.6',
+            'version'  => '0.9.8',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
             'autoload' =>  true,
-            'requires' => 'ProcessWire>=2.3.0',
+            'requires' => 'ProcessWire>=2.3.0, PHP>=5.3.8',
             'icon'     => 'link',
         );
+        if(version_compare(self::$pwv, self::$pwvRequires, '<')) unset($info['requires']);
+        return $info;
     }
 
     public static function getModuleConfigInputfields(array $data) {
@@ -49,6 +52,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             $role = $this->roles->get(self::$alifSuperuserRole);
             if(!$perm->id > 0) {
                 $perm = $this->permissions->add(self::$alifPermission);
+                $perm->title = $this->lang(79);
                 $this->permissions->save($perm);
             }
             if(!$role->id > 0) {
@@ -134,6 +138,12 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
 
 
     // initialization
+    public function __construct() {
+        self::$pwv = wire('config')->version;
+    }
+
+    public function init() {}
+
     public function ready() {
 
         // fields that need to be resetted in data storage
@@ -218,7 +228,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
 
         // check if we can use API method $session->forceLogin($user) (without password !)
         $this->validUserAccounts = array();
-        if(version_compare($this->config->version, '2.6.8', '<')) {
+        if(version_compare($this->config->version, self::$pwvUAS, '<')) {
             $this->data['use_user_switcher'] = 0;
             unset($this->data['user_accounts']);
             $this->data['uas_session_duration'] = 0;
@@ -291,7 +301,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     }
 
     public function hookAfterSessionLogin(HookEvent $event) {
-        #if($this->alifWasLoggedinAsSuperuser && $this->uas_isValidSessionUser()) {
         if($this->alifWasLoggedinAsSuperuser) {
             $event->object->set('alifWasLoggedinAsSuperuser', true);
             $event->object->set('SuppressDBautoBackup', true);
@@ -331,13 +340,15 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     private function uas_start() {
         if(!$this->uas_isValidSuperuser()) return false;
         $time = time();
-        $endtime = $time + intval(60 * (int)$this->data['uas_session_duration']); // add minutes to current timestamp
-        $data = serialize(array('fingerprint' => self::uas_getFingerprint(), 'endtime' => $endtime));
-        return strlen($data) === file_put_contents(self::uas_getFilename(), $data, LOCK_EX);
+        $ttl = (int)$this->data['uas_session_duration'];
+        $ttl = $ttl >= 2 && $ttl <= 60 ? $ttl : 5;
+        $endtime = $time + intval(60 * $ttl); // add minutes to current timestamp
+        $data = serialize(array('fingerprint' => $this->uas_getFingerprint(), 'endtime' => $endtime));
+        return strlen($data) === file_put_contents($this->uas_getFilename(), $data, LOCK_EX);
     }
 
     private function uas_destroy() {
-        @unlink(self::uas_getFilename());
+        @unlink($this->uas_getFilename());
         $this->alifWasLoggedinAsSuperuser = false;
         $this->session->remove('alifWasLoggedinAsSuperuser');
         if($this->user->isLoggedin()) $this->session->logout();
@@ -346,14 +357,14 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     }
 
     private function uas_sessionTimeToLive() {
-        $file = self::uas_getFilename();
+        $file = $this->uas_getFilename();
         if(!is_readable($file)) return 'N/A';
         $data = unserialize(file_get_contents($file));
         return strval(ceil(((int)$data['endtime'] - time()) / 60));
     }
 
     private function uas_isValidSessionUser() {
-        $file = self::uas_getFilename();
+        $file = $this->uas_getFilename();
         if(!is_readable($file)) return false;
         $data = unserialize(file_get_contents($file));
         if($this->uas_getFingerprint() != $data['fingerprint']) return false;
@@ -804,22 +815,22 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             48 => $this->_('Select users for the UserAccountSwitcher container'),
             49 => $this->_('Extra Row'),
             50 => $this->_('Stack Userbuttons in an own row'),
-            51 => $this->_('Applies only when displayed horizontal.'),
-            52 => $this->_('Start a UAS session'),
+            51 => $this->_('Applies only when displayed horizontal'),
+            52 => $this->_('Start an UAS session'),
             53 => $this->_('Check this box and send the form to start an UAS session'),
-            54 => $this->_('54'),
-            55 => $this->_('Max Session Time'),
+//            54 => $this->_('54'),
+            55 => $this->_('Session time to live'),
             56 => $this->_('Minutes, min 2 and max 60'),
             57 => $this->_('Admin IP'),
-            58 => $this->_('Bind the session to your static (home) IP!'),
-            59 => $this->_('Leave empty, if you do not use a static IP'),
+            58 => sprintf($this->_('Bind the session to your IP, %s ?'), (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '')),
+            59 => $this->_('Leave empty if you use a fast changing dynamic IP!'),
             60 => $this->_('Configure and start the fast User Account Switcher'),
             61 => $this->_('Import Data Wizzard Step 2'),
             62 => $this->_('62'),
             63 => $this->_('ATTENTION: Importing Data has failed!'),
             64 => $this->_('IMPORT FAILURE'),
-            65 => $this->_('65'),
-            66 => $this->_('66'),
+//            65 => $this->_('65'),
+//            66 => $this->_('66'),
             67 => $this->_('Sanitized ImportData'),
             68 => $this->_('The sanitized Importdata looks as follows:'),
             69 => $this->_('Check to select Items for the Import'),
@@ -832,10 +843,10 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             76 => $this->_('Check if you want to import this setting'),
             77 => $this->_('Uaser Account Switcher'),
             78 => $this->_('Check if you want to import settings for the User Account Switcher'),
-//            79 => $this->_('79'),
-//            80 => $this->_('80'),
-//            81 => $this->_('81'),
-//            82 => $this->_('82'),
+            79 => $this->_('Use One-Click User Switch Toolbar'),
+            80 => $this->_('How to inject the links into your frontpage'),
+            81 => $this->_('To display the link container in your frontpage, you add code into a template file, similar to:'),
+            82 => $this->_('echo $modules->isInstalled("AdminLinksInFrontend") ? $modules->get("AdminLinksInFrontend")->render() : "";'),
 //            83 => $this->_('83'),
 //            84 => $this->_('84'),
 //            85 => $this->_('85'),
@@ -912,9 +923,18 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
                 $field->attr('name+id', 'importwizzard2');
                 $field->label = $this->lang(67);
                 $field->collapsed = Inputfield::collapsedNo;
-                $markup = $this->varDump($this->session->get('alifValidImportData'));
+                $a = $this->session->get('alifValidImportData');
+                $markup = $this->varDump($a);
+                foreach(array('skin1_', 'skin2_', 'skin3_', 'skin4_') as $sk) {
+                    $c = '#' . $a[$sk . 'color'];
+                    foreach(array('bg_regular', 'bg_edit', 'bg_info', 'bg_warning') as $bg) {
+                        $bgc = $a[$sk . $bg];
+                        $pattern = "#(\[\"{$sk}{$bg}\"\].*?)(string\(6\) \"{$bgc}\")#i";
+                        $markup = preg_replace($pattern, "<span style=\"color:$c;background-color:#$bgc\">$1$2</span>", $markup);
+                    }
+                }
                 $field->attr('value', "<p><strong>" . $this->lang(68) . "</strong></p><pre>\n{$markup}\n</pre>");
-                unset($markup);
+                unset($markup, $a, $c, $sk, $bg, $bgc);
                 $field->columnWidth = 100;
                 $fieldset->add($field);
 
@@ -983,6 +1003,14 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             $this->session->remove('alifValidImportData');
         }
 
+        // information
+        $field = $this->modules->get('InputfieldMarkup');
+        $field->attr('name+id', 'template_code_info');
+        $field->label = $this->lang(80);
+        $field->collapsed = Inputfield::collapsedNo;
+        $field->attr('value', "<p>" . $this->lang(81) . "</p><code><strong>" . $this->lang(82) . "</strong></code>");
+        $field->columnWidth = 100;
+        $form->add($field);
 
         // position, direction, colorselect
         $fieldset = $this->modules->get('InputfieldFieldset');
@@ -1076,48 +1104,48 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             $fieldset->add($field);
         $form->add($fieldset);
 
+        if(version_compare(self::$pwv, self::$pwvShowIf, '>=')) {
+            // Import / Export
+            $fieldset = $this->modules->get('InputfieldFieldset');
+            $fieldset->attr('name+id', 'importexport');
+            $fieldset->label = $this->lang(34);
+            $fieldset->collapsed = Inputfield::collapsedYes;
+                $field = $this->modules->get('InputfieldCheckbox');
+                $field->attr('name+id', 'import_enabled');
+                $field->label = $this->lang(35);
+                $field->showIf = 'export_enabled=0';
+                $field->attr('value', 1);
+                $field->columnWidth = 100;
+                $fieldset->add($field);
 
-        // Import / Export
-        $fieldset = $this->modules->get('InputfieldFieldset');
-        $fieldset->attr('name+id', 'importexport');
-        $fieldset->label = $this->lang(34);
-        $fieldset->collapsed = Inputfield::collapsedYes;
-            $field = $this->modules->get('InputfieldCheckbox');
-            $field->attr('name+id', 'import_enabled');
-            $field->label = $this->lang(35);
-            $field->showIf = 'export_enabled=0';
-            $field->attr('value', 1);
-            $field->columnWidth = 100;
-            $fieldset->add($field);
+                $field = $this->modules->get('InputfieldCheckbox');
+                $field->attr('name+id', 'export_enabled');
+                $field->label = $this->lang(36);
+                $field->showIf = 'import_enabled=0';
+                $field->attr('value', 1);
+                $field->columnWidth = 100;
+                $fieldset->add($field);
 
-            $field = $this->modules->get('InputfieldCheckbox');
-            $field->attr('name+id', 'export_enabled');
-            $field->label = $this->lang(36);
-            $field->showIf = 'import_enabled=0';
-            $field->attr('value', 1);
-            $field->columnWidth = 100;
-            $fieldset->add($field);
+                $field = $this->modules->get('InputfieldTextarea');
+                $field->attr('name+id', 'data_import');
+                $field->label = $this->lang(37);
+                $field->description = $this->lang(38);
+                $field->attr('rows', 15);
+                $field->showIf = 'import_enabled=1';
+                $field->columnWidth = 100;
+                $fieldset->add($field);
 
-            $field = $this->modules->get('InputfieldTextarea');
-            $field->attr('name+id', 'data_import');
-            $field->label = $this->lang(37);
-            $field->description = $this->lang(38);
-            $field->attr('rows', 15);
-            $field->showIf = 'import_enabled=1';
-            $field->columnWidth = 100;
-            $fieldset->add($field);
-
-            $field = $this->modules->get('InputfieldTextarea');
-            $field->attr('name+id', 'data_export');
-            $field->label = $this->lang(39);
-            $field->description = $this->lang(40);
-            $field->showIf = 'export_enabled=1';
-            $field->value = serialize($data);
-            $field->attr('rows', 15);
-            $field->columnWidth = 100;
-            $fieldset->add($field);
-        $form->add($fieldset);
-
+                $field = $this->modules->get('InputfieldTextarea');
+                $field->attr('name+id', 'data_export');
+                $field->label = $this->lang(39);
+                $field->description = $this->lang(40);
+                $field->showIf = 'export_enabled=1';
+                $field->value = serialize($data);
+                $field->attr('rows', 15);
+                $field->columnWidth = 100;
+                $fieldset->add($field);
+            $form->add($fieldset);
+        }
 
         // advanced settings, UAS
         $fieldset = $this->modules->get('InputfieldFieldset');
@@ -1134,7 +1162,7 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             $fieldset->add($field);
 
             // check if we can use $session->forceLogin($user) or not
-            if(version_compare($this->config->version, '2.6.8', '>=')) {
+            if(version_compare($this->config->version, self::$pwvUAS, '>=')) {
                 $fieldset2 = $this->modules->get('InputfieldFieldset');
                 $fieldset2->attr('name+id', 'advancedsetupuas');
                 $fieldset2->label = $this->lang(60);
