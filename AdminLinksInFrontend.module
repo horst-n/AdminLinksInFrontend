@@ -25,7 +25,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         }
         return array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.5',
+            'version'  => '0.9.6',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -88,13 +88,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     // settings
     private static $alifPermission = 'alif-user-account-switcher';
     private static $alifSuperuserRole = 'alif-superuser';
-    private $skins = array();
-    private $dataCorrections1 = array();
-    private $dataCorrections2 = array();
-    private $dataCorrections = array();
-    private $validUserAccounts = array();
-    private $alifWasLoggedinAsSuperuser = false;
-    private $needRedirectAfterSwitch = '';
     private static $lockfile = 'alif_uas_session.cache';
     private static $buttons = array(
         'adminpage' => 'PW Admin (goto)',
@@ -130,15 +123,17 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         'uas_session_duration' => 0,
         'admin_ip' => ''
     );
+    private $skins = array();
+    private $dataCorrections1 = array();
+    private $dataCorrections2 = array();
+    private $dataCorrections = array();
+    private $validUserAccounts = array();
+    private $alifWasLoggedinAsSuperuser = false;
+    private $needRedirectAfterSwitch = '';
 
 
 
     // initialization
-    public function init() {
-        #if('admin' == $this->page->template->name && 'module' == $this->page->name && __CLASS__ == $this->input->get('name')) {
-        #}
-    }
-
     public function ready() {
 
         // fields that need to be resetted in data storage
@@ -309,7 +304,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(true !== $cache) return;
         if(true === $this->config->debug) $cache = false;
         if(true === $this->session->get('alifWasLoggedin')) $cache = false;
-        if(true === $this->session->get('wasLoggedinAsSuperuser')) $cache = false;
+        if(true === $this->session->get('alifWasLoggedinAsSuperuser')) $cache = false;
         $event->return = $cache;
     }
 
@@ -508,7 +503,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
                 if(!in_array($v, array('skin1', 'skin2', 'skin3', 'skin4'))) continue;
                 $isValid = true;
                 break;
-
 
             case 'skin1_label':             // text names
             case 'skin2_label':
@@ -815,7 +809,7 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             53 => $this->_('Check this box and send the form to start an UAS session'),
             54 => $this->_('54'),
             55 => $this->_('Max Session Time'),
-            56 => $this->_('Minutes, min 5 and max 60'),
+            56 => $this->_('Minutes, min 2 and max 60'),
             57 => $this->_('Admin IP'),
             58 => $this->_('Bind the session to your static (home) IP!'),
             59 => $this->_('Leave empty, if you do not use a static IP'),
@@ -872,9 +866,6 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             $field = $this->modules->get('InputfieldText');
             $field->attr('name+id', $skin . $k);
             $field->label = str_replace(array('_bg_', '_color'), array('bgcolor ', 'text color'), $k);
-            //$field->attr('data-orig', $v);
-            //$field->attr('data-sanitized', 'rgb(' . implode(',', self::sanitizeColor($v)) . ')');
-            //$field->attr('data-converted', self::convertRgbColorToHex(self::sanitizeColor($v)));
             $field->value = self::convertRgbColorToHex(self::sanitizeColor($v));
             $field->attr('class', 'jscolor');
             $field->attr('maxlength', 7);
@@ -1096,7 +1087,6 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             $field->label = $this->lang(35);
             $field->showIf = 'export_enabled=0';
             $field->attr('value', 1);
-            /*$field->attr('checked', $data[$field->name] ? 'checked' : '');*/
             $field->columnWidth = 100;
             $fieldset->add($field);
 
@@ -1105,7 +1095,6 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
             $field->label = $this->lang(36);
             $field->showIf = 'import_enabled=0';
             $field->attr('value', 1);
-            /*$field->attr('checked', $data[$field->name] ? 'checked' : '');*/
             $field->columnWidth = 100;
             $fieldset->add($field);
 
@@ -1194,7 +1183,6 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
                     $field->attr('name+id', 'start_uas_session');
                     $field->label = $this->lang(52);
                     $field->description = $this->lang(53);
-                    #$field->notes = $this->lang(54);
                     $field->showIf = 'use_user_switcher=1';
                     $field->attr('value', 1);
                     $field->attr('checked', '');
@@ -1206,7 +1194,6 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background
                     $field->attr('name+id', 'uas_session_duration');
                     $field->label = $this->lang(55);
                     $field->description = $this->lang(56);
-                    #$field->notes = $this->lang(54);
                     $field->showIf = 'use_user_switcher=1';
                     if(isset($data[$field->name])) $field->value = $data[$field->name];
                     $field->columnWidth = 34;
