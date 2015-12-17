@@ -26,7 +26,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.11',
+            'version'  => '0.9.12',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -703,7 +703,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     }
 
     private static $css = '
-div#ALIFdimensionsDisplay, div#ALIFadminLinksContainer, div#ALIFadminLinksContainer a.ALIFadminlink, div#ALIFadminLinksContainer a.ALIFadminlink span {
+div#ALIFdimensionsDisplay, div#ALIFdimensionsDisplay a, div#ALIFdimensionsDisplay span, div#ALIFadminLinksContainer, div#ALIFadminLinksContainer a.ALIFadminlink, div#ALIFadminLinksContainer a.ALIFadminlink span {
     -webkit-box-sizing: border-box;
        -moz-box-sizing: border-box;
         -ms-box-sizing: border-box;
@@ -789,19 +789,11 @@ div#ALIFadminLinksContainer a.ALIFadminLinksBgColorInfo {background-color:_bg_in
 div#ALIFadminLinksContainer a.ALIFadminLinksBgColorWarning {background-color:_bg_warning !important}
 div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser {background-color:_bg_regular !important}
 div#ALIFadminLinksContainer a.ALIFadminLinksBgColorUser.PwActiveUser {background-color:_bg_info !important}
-
-div#ALIFdimensionsDisplay {
-    position:fixed;
-    top:[_POSCPX_];
-    left:[_POSDPX_];
-    z-index:[_ZINDEX2_];
-    display:none;
-    padding: 5px 10px 5px 10px !important;
+div#ALIFdimensionsDisplay, div#ALIFdimensionsDisplay div#ALIFdimensionsDisplayInner {
+    padding: 0 !important;
     color:_color !important;
     background-color:_bg_regular !important;
     opacity:1;
-    min-width:260px;
-    min-height:70px;
     vertical-align: top !important;
     line-height: 18px !important;
     font-size: 11px !important;
@@ -809,8 +801,33 @@ div#ALIFdimensionsDisplay {
     text-decoration: none !important;
     font-family: Verdana, sans-serif !important;
 }
-div#ALIFdimensionsDisplay span {font-size:13px !important; font-weight:700 !important; padding-left:3px !important}
-div#ALIFdimensionsDisplay hr {line-height:4px !important; font-size:4px !important; margin:4px 0 2px 0 !important; padding:0 !important; border:1px solid _color !important; opacity:0.5 !important}
+div#ALIFdimensionsDisplay {
+    position:fixed;
+    top:[_POSCPX_];
+    left:[_POSDPX_];
+    z-index:[_ZINDEX2_];
+    display:none;
+    min-width:260px;
+    min-height:70px;
+    border: 0 none !important;
+    background-color:_bg_info !important;
+}
+div#ALIFdimensionsDisplay div#ALIFdimensionsDisplayInner {padding:5px 10px 5px 10px !important; border:2px solid _bg_info !important}
+div#ALIFdimensionsDisplay div#ALIFdimensionsDisplayInner span {font-size:13px !important; font-weight:700 !important; padding-left:3px !important}
+div#ALIFdimensionsDisplay div#ALIFdimensionsDisplayInner hr {line-height:4px !important; font-size:4px !important; margin:4px 0 2px 0 !important; padding:0 !important; border:1px solid _color !important; opacity:0.5 !important}
+div#ALIFdimensionsDisplay a.ALIFddSwitcher {
+    display:inline-block !important;
+    width:33% !important;
+    padding:2px !important;
+    background-color:_bg_info !important;
+    color:_color !important;
+    line-height: 14px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    opacity:0.8;
+}
+div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
 ';
 
     private function lang($item) {
@@ -1324,33 +1341,44 @@ div#ALIFdimensionsDisplay hr {line-height:4px !important; font-size:4px !importa
         $customContentContainerID = isset($this->data['cccID']) ? trim($this->data['cccID']) : '';
         return "\n<script type='text/javascript'>
     var ALIFcontainerID='{$customContentContainerID}', ALIFcd=null, ALIFdd=null, ALIFtimerID=null, ALIFshowDimensions=null, ALIFdimensionsToggle=null;
+    var ALIFddOffset=true, ALIFddClient=true, ALIFddScroll=true;
     var ALIFstartDimensions = function() {
         var div = document.createElement('div');
         div.id = 'ALIFdimensionsDisplay';
         document.body.appendChild(div);
+        var A = document.createElement('a'); A.classList.add('ALIFddSwitcher'); A.id = 'ALIFDDoffset'; A.innerHTML = 'offset'; div.appendChild(A);
+        A = document.createElement('a'); A.classList.add('ALIFddSwitcher'); A.id = 'ALIFDDclient'; A.innerHTML = 'client'; div.appendChild(A);
+        A = document.createElement('a'); A.classList.add('ALIFddSwitcher'); A.id = 'ALIFDDscroll'; A.innerHTML = 'scroll'; div.appendChild(A);
+        var div2 = document.createElement('div'); div2.id = 'ALIFdimensionsDisplayInner'; div.appendChild(div2);
         if(ALIFcontainerID) ALIFcd = document.getElementById(ALIFcontainerID);
         ALIFdd = document.getElementById('ALIFdimensionsDisplay');
+        ALIFddi = document.getElementById('ALIFdimensionsDisplayInner');
         ALIFtimerID = null;
         ALIFshowDimensions = function() {
             var b = document.body;
-            var s = '<span>' + window.innerWidth + ' x ' + window.innerHeight + '<\/span> (win innerW x innerH)<br>';
-            s += '<hr><span>' + b.offsetWidth + ' x ' + b.offsetHeight + '<\/span> (body offsetW x offsetH)<br>';
-            s += '<span>' + b.clientWidth + ' x ' + b.clientHeight + '<\/span> (body clientW x clientH)<br>';
-            s += '<span>' + b.scrollWidth + ' x ' + b.scrollHeight + '<\/span> (body scrollW x scrollH)<br>';
-            if(ALIFcontainerID) s += '<hr><span>' + ALIFcd.offsetWidth + ' x ' + ALIFcd.offsetHeight + '<\/span> (' + ALIFcontainerID + ' offsetW x offsetH)<br>';
-            if(ALIFcontainerID) s += '<span>' + ALIFcd.clientWidth + ' x ' + ALIFcd.clientHeight + '<\/span> (' + ALIFcontainerID + ' clientW x clientH)<br>';
-            if(ALIFcontainerID) s += '<span>' + ALIFcd.scrollWidth + ' x ' + ALIFcd.scrollHeight + '<\/span> (' + ALIFcontainerID + ' scrollW x scrollH)<br>';
-            ALIFdd.innerHTML = s;
+            var s = '<span>' + window.innerWidth + ' x ' + window.innerHeight + '<\/span> (win innerW x innerH)<hr>';
+            if(ALIFddOffset) s += '<span>' + b.offsetWidth + ' x ' + b.offsetHeight + '<\/span> (body offsetW x offsetH)<br>';
+            if(ALIFddClient) s += '<span>' + b.clientWidth + ' x ' + b.clientHeight + '<\/span> (body clientW x clientH)<br>';
+            if(ALIFddScroll) s += '<span>' + b.scrollWidth + ' x ' + b.scrollHeight + '<\/span> (body scrollW x scrollH)<br>';
+            if(ALIFcontainerID) s += '<hr>';
+            if(ALIFcontainerID && ALIFddOffset) s += '<span>' + ALIFcd.offsetWidth + ' x ' + ALIFcd.offsetHeight + '<\/span> (' + ALIFcontainerID + ' offsetW x offsetH)<br>';
+            if(ALIFcontainerID && ALIFddClient) s += '<span>' + ALIFcd.clientWidth + ' x ' + ALIFcd.clientHeight + '<\/span> (' + ALIFcontainerID + ' clientW x clientH)<br>';
+            if(ALIFcontainerID && ALIFddScroll) s += '<span>' + ALIFcd.scrollWidth + ' x ' + ALIFcd.scrollHeight + '<\/span> (' + ALIFcontainerID + ' scrollW x scrollH)<br>';
+            ALIFddi.innerHTML = s;
             ALIFtimerID = setTimeout(ALIFshowDimensions, 100);
         };
         ALIFdimensionsToggle = function() {
-            if('block' == ALIFdd.style.display) {
-                ALIFdd.style.display = 'none';
-            } else {
-                ALIFdd.style.display = 'block';
-            }
+            ALIFdd.style.display = 'block' == ALIFdd.style.display ? 'none' : 'block';
+        };
+        ALIFdisplayItemToggle = function() {
+            if('offset' == this.id.substr(6,6)) ALIFddOffset = !ALIFddOffset;
+            if('client' == this.id.substr(6,6)) ALIFddClient = !ALIFddClient;
+            if('scroll' == this.id.substr(6,6)) ALIFddScroll = !ALIFddScroll;
         };
         document.getElementById('ALIFdimensionsButton').addEventListener('click', ALIFdimensionsToggle);
+        document.getElementById('ALIFDDoffset').addEventListener('click', ALIFdisplayItemToggle);
+        document.getElementById('ALIFDDclient').addEventListener('click', ALIFdisplayItemToggle);
+        document.getElementById('ALIFDDscroll').addEventListener('click', ALIFdisplayItemToggle);
         ALIFtimerID = setTimeout(ALIFshowDimensions, 100);
     };
     document.body.onload = ALIFstartDimensions;
