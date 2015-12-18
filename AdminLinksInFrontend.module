@@ -26,7 +26,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.12',
+            'version'  => '0.9.13',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
