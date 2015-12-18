@@ -950,7 +950,7 @@ div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
 
         // append the JS color selector on ConfigPage
         if(0 == $this->session->get('alifDataImportStep')) {
-            $jsUrl = $this->config->urls->site . 'modules/' . __CLASS__ . '/jscolor.js';
+            $jsUrl = $this->config->urls->AdminLinksInFrontend . 'jscolor.js';
             $this->config->scripts->append($jsUrl);
         }
 
