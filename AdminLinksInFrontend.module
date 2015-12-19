@@ -26,7 +26,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.13',
+            'version'  => '0.9.14',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -1350,7 +1350,11 @@ div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
         A = document.createElement('a'); A.classList.add('ALIFddSwitcher'); A.id = 'ALIFDDclient'; A.innerHTML = 'client'; div.appendChild(A);
         A = document.createElement('a'); A.classList.add('ALIFddSwitcher'); A.id = 'ALIFDDscroll'; A.innerHTML = 'scroll'; div.appendChild(A);
         var div2 = document.createElement('div'); div2.id = 'ALIFdimensionsDisplayInner'; div.appendChild(div2);
-        if(ALIFcontainerID) ALIFcd = document.getElementById(ALIFcontainerID);
+        if(ALIFcontainerID && document.getElementById(ALIFcontainerID)) {
+            ALIFcd = document.getElementById(ALIFcontainerID);
+        } else {
+            ALIFcontainerID = '';
+        }
         ALIFdd = document.getElementById('ALIFdimensionsDisplay');
         ALIFddi = document.getElementById('ALIFdimensionsDisplayInner');
         ALIFtimerID = null;
