@@ -16,6 +16,7 @@
 
 class ProcessAdminLinksInFrontend extends Process {
 
+    const alif_opcache_maintenance = 'opcache-maintenance';
     private static $pwv = '';
     private static $pwvRequires = '2.5.0';
     private static $opcEnabled = false;
@@ -25,15 +26,15 @@ class ProcessAdminLinksInFrontend extends Process {
         $requires = 'AdminLinksInFrontend';
         if(version_compare(self::$pwv, self::$pwvRequires, '>')) $requires .= ', ProcessWire>=2.3.0, PHP>=5.4.0';
         $info = array(
-            'title'    => 'ALIF - Admin Links In Frontend :: OPCache Viewer',
-            'version'  => '0.9.15',
-            'author'   => 'Horst Nogajski',
-            'summary'  => $summary,
-            'singular' => true,
-            'autoload' => false,
-            'requires' => $requires,
+            'title'      => 'ALIF - Admin Links In Frontend :: OPCache Viewer',
+            'version'    => '0.9.16',
+            'author'     => 'Horst Nogajski',
+            'summary'    => $summary,
+            'singular'   => true,
+            'autoload'   => false,
+            'requires'   => $requires,
             'permission' => 'logs-view',
-            'icon'     => 'link',
+            'icon'       => 'dashboard',
         );
         return $info;
     }
@@ -58,27 +59,49 @@ class ProcessAdminLinksInFrontend extends Process {
             #$p->addStatus(Page::statusHidden);
             $p->save();
         }
+        $perm = $this->permissions->get(self::alif_opcache_maintenance);
+        if(!$perm->id > 0) {
+            $perm = $this->permissions->add(self::alif_opcache_maintenance);
+            $perm->title = 'OpCache Maintenance';
+            $this->permissions->save($perm);
+        }
     }
 
     public function ___uninstall() {
         $p = $this->pages->get(22)->children('include=hidden')->get('name=' . AdminLinksInFrontend::opcPageName);
         if($p->id) $p->delete();
+        $perm = $this->permissions->get(self::alif_opcache_maintenance);
+        if($perm->id > 0) {
+            $this->permissions->delete($perm);
+        }
     }
+
+
 
     public function ___execute() {
         $this->setFuel('processHeadline', 'OPCache Viewer');
-        $src = dirname(__FILE__) . '/opcache.php';
-        if(!is_readable($src)) return _("Required file is missing or not readable: site/modules/AdminLinksInFrontend/opcache.php");
+        if($this->input->post->submitopcwarmup) {
+            $this->processOpcWarmup();
+        }
+        $src = dirname(__FILE__) . '/libs/opcache.php';
+        if(!is_readable($src)) return _("Required file is missing or not readable: site/modules/AdminLinksInFrontend/libs/opcache.php");
         if(!class_exists('OpCacheDataModel')) {
             ob_start();
             require_once($src);
             ob_end_clean();
         }
-        if(!class_exists('OpCacheDataModel')) return _("Required file could not be loaded: site/modules/AdminLinksInFrontend/opcache.php");
-        return $this->markup();
+        if(!class_exists('OpCacheDataModel')) return _("Required file could not be loaded: site/modules/AdminLinksInFrontend/libs/opcache.php");
+        $out = $this->renderMarkupOpcView();
+
+        if($this->user->hasPermission(self::alif_opcache_maintenance)) {
+            $out .= $this->renderMarkupButtons();
+        }
+        return $out;
     }
 
-    private function markup() {
+
+
+    private function renderMarkupOpcView() {
         $dataModel = new OpCacheDataModel();
 return '
 <style type="text/css">
@@ -459,5 +482,60 @@ return '
 ';
     }
 
-}
+    private function renderMarkupButtons() {
+        $form = $this->modules->get('InputfieldForm');
+        $form->action = './';
+        $form->method = 'post';
+        $form->attr('id+name', 'opc_warm_up_pw');
+        $submit = $this->modules->get('InputfieldSubmit');
+        $submit->attr('value', 'warm up opcache with PW files');
+        $submit->attr('id+name', 'submitopcwarmup');
+        $form->append($submit);
+        $out = $form->render();
+        return $out;
+    }
 
+    private function processOpcWarmup($part = 'both') {
+        if('site' == $part) {
+            $pathes = array($this->config->paths->site);
+        } else if('wire' == $part) {
+            $pathes = array($this->config->paths->wire);
+        } else {
+            $pathes = array($this->config->paths->wire, $this->config->paths->site);
+        }
+        @require_once(dirname(__FILE__) . '/libs/hn_dir.class.php');
+        if(!class_exists('hn_dir')) {
+            $this->error(sprintf($this->_("cannot load phpclass: %s - ( %s aborted! )"), 'hn_dir', __FUNCTION__));
+            return;
+        }
+        $filetypes = array('php', 'module', 'inc');
+        $init = array(
+            'debugoutput'         => DBG_LOG_NONE,
+            'debugpattern'        => '/parseDir|timer/',
+            'depth'               => -1,
+            'fileextensions'      => $filetypes,
+            'subdirnames'         => array('assets'),
+            'subdirnames_exclude' => true,
+            'very_basic_result'   => false,
+            'use_timer'           => true
+        );
+        $dir = new hn_dir($init);
+        $dir->getDir($pathes);
+        $dir->files[] = array('fullname' => $this->config->paths->root . 'index.php'); // add PWs index.php
+        $dir->sortFiles(array('dirname', 'basename'));
+        $total = count($dir->files);
+        $this->message(sprintf($this->_("OpCache: The FileSystemScan found %s valid files."), strval(count($dir->files))));
+
+        $opcacheForceRefresh = false;
+        foreach($dir->files as $n => $a) {
+            $f = $a['fullname'];
+            if(!is_file($f)) continue;
+            opcache_invalidate($f, $opcacheForceRefresh);
+            if(!opcache_is_script_cached($f)) {
+                @opcache_compile_file($f);
+            }
+        }
+        $this->message(sprintf($this->_("OpCache: warmed up cache for %s."), ('both' == $part ? 'wire and site' : $part)));
+    }
+
+}

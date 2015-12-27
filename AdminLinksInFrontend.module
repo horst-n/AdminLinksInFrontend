@@ -28,7 +28,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '0.9.15',
+            'version'  => '0.9.16',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -108,7 +108,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         'debugmode' => 'Debugmode (info)',
         'imagesizerforcenew' => 'Imagesizer Forcenew (info)',
         'aov' => 'Access Overview (goto)',
-        'opc' => 'OPCache Viewer (goto)'
+        'opc' => 'OpCache Viewer (goto)'
     );
     private static $factorySettings = array(
         'zindex' => 8844,     // MountEverest :)
@@ -119,7 +119,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         'position_lr' => 'left',
         'position_lr_px' => '0',
         'skin1_label' => 'skin1', 'skin1_color' => 'fff', 'skin1_bg_regular' => '364d68', 'skin1_bg_edit' => '3EB998', 'skin1_bg_info' => '4285F4', 'skin1_bg_warning' => 'E83561',
-        'skin2_label' => 'skin2', 'skin2_color' => '000', 'skin2_bg_regular' => 'E2E9EF', 'skin2_bg_edit' => '3EB998', 'skin2_bg_info' => 'FFFFDD', 'skin2_bg_warning' => 'FC5D89',
+        'skin2_label' => 'skin2', 'skin2_color' => 'fff', 'skin2_bg_regular' => '1C2F96', 'skin2_bg_edit' => '93C40E', 'skin2_bg_info' => '95C1F3', 'skin2_bg_warning' => 'D3022C',
         'skin3_label' => 'skin3', 'skin3_color' => '000', 'skin3_bg_regular' => 'DDDDDD', 'skin3_bg_edit' => 'DDFFDD', 'skin3_bg_info' => 'FFFFDD', 'skin3_bg_warning' => 'FFDDDD',
         'skin4_label' => 'skin4', 'skin4_color' => 'fff', 'skin4_bg_regular' => '555555', 'skin4_bg_edit' => '559955', 'skin4_bg_info' => '999955', 'skin4_bg_warning' => '995555',
         'use_advanced_links' => 0,
@@ -965,7 +965,7 @@ div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
 
         // append the JS color selector on ConfigPage
         if(0 == $this->session->get('alifDataImportStep')) {
-            $jsUrl = $this->config->urls->AdminLinksInFrontend . 'jscolor.js';
+            $jsUrl = $this->config->urls->AdminLinksInFrontend . 'libs/jscolor.js';
             $this->config->scripts->append($jsUrl);
         }
 
