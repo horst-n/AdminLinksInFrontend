@@ -27,7 +27,7 @@ class ProcessAdminLinksInFrontend extends Process {
         if(version_compare(self::$pwv, self::$pwvRequires, '>')) $requires .= ', ProcessWire>=2.3.0, PHP>=5.4.0';
         $info = array(
             'title'      => 'ALIF - Admin Links In Frontend :: OPCache Viewer',
-            'version'    => '0.9.16',
+            'version'    => '1.0.0',
             'author'     => 'Horst Nogajski',
             'summary'    => $summary,
             'singular'   => true,
