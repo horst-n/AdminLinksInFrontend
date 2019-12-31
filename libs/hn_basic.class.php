@@ -1,17 +1,11 @@
 <?php
 /*******************************************************************************
   *  @script_type -   PHP-CLASS
-  *  @php_version -   4.2.x
-  *  @SOURCE-ID   -   1.205
+  *  @php_version -   5.4.0 - 7.4
   * ---------------------------------------------------------------------------
-  *  @version     -   v3.5
-  *  @date        -   $Date: 2014/04/16 08:04:08 $
-  *  @author      -   Horst Nogajski <coding AT nogajski DOT de>
-  *  @copyright   -   (c) 1999 - 2013
-  *  @licence     -   LGPL
-  * ---------------------------------------------------------------------------
-  *  $Source: /PHP-CLI/php_includes/hn_basic.class.php,v $
-  *  $Id: hn_basic.class.php,v 1.211 2014/04/16 08:04:08 horst Exp $
+  *  @version     -   v4.1
+  *  @author      -   Horst Nogajski <info AT nogajski DOT de>
+  *  @copyright   -   (c) 1999 - 2020
   ******************************************************************************
   *
   * LAST CHANGES:
@@ -58,6 +52,11 @@
   *
   * 2014-04-16   change  hn_basic -> my_var_dump()  = changed font-family for BrowserOutput
   *
+
+  * 2018-08-17   change  hn_basic -> my_var_dump()  = changed deprecated preg_replace with e-modifier to preg_replace_callback
+  *
+  * 2019-12-30   fix     fixes       some minor PHP 7.3 & 7.4 deprecated code fixes
+  * 
 **/
 
 
@@ -65,25 +64,6 @@
 
 require_once( dirname(__FILE__).'/hn_basic_helpers.class.php' );
 
-	if(!function_exists('hn_dl'))
-	{
-		function hn_dl($extension)
-		{
-			$extension = strtolower(trim($extension));
-			if(extension_loaded($extension))
-			{
-				return true;
-			}
-			$is_enabled = intval(ini_get('enable_dl'))==1 && intval(ini_get('safe_mode'))!=1 ? TRUE : FALSE;
-			if(!$is_enabled)
-			{
-				return false;
-			}
-			$dll = preg_match('/^Windows/i',php_uname()) ? 'php_'.$extension.'.dll' : $extension.'.so';
-			$res = intval(@dl($dll));
-			return extension_loaded($extension);
-		}
-	}
 
 
 
@@ -97,6 +77,7 @@ require_once( dirname(__FILE__).'/hn_basic_helpers.class.php' );
 																//  HTML + FILE | CMDL + FILE | HIDE + FILE)
 
 	if(!defined('DBG_LOG_ECHO')) define( 'DBG_LOG_ECHO', 1 );	// old Constant for output to screen for Webbrowsers
+    if(!defined('DBG_LOG_TEMP')) define( 'DBG_LOG_TEMP', 9 );   // Logentry into tempfile buffer
 
 
 
@@ -126,10 +107,8 @@ require_once( dirname(__FILE__).'/hn_basic_helpers.class.php' );
   * etc. etc. (have a look to the code)
   *
   **/
-if(!class_exists('hn_basic')) {
-
-class hn_basic extends hn_php4_destructor
-{
+if( ! class_exists('hn_basic') && ! class_exists('ProcessWire\hn_basic') ) {
+class hn_basic extends hn_php4_destructor {
 
 	/////////////////////////////////////////////
 	//	PUBLIC PARAMS
@@ -281,11 +260,12 @@ class hn_basic extends hn_php4_destructor
 	/////////////////////////////////////////////
 	//	CONSTRUCTOR
 
+
 		/** Constructor
 		  * @public
 		  **/
-		function hn_basic($config='',$secure=TRUE)
-		{
+        function __construct($config='',$secure=TRUE) {
+            parent::__construct();
 			$this->getErrorLevel();
 
 			// extracts config Array
@@ -356,7 +336,7 @@ class hn_basic extends hn_php4_destructor
 				{
 					$this->msg = '- Initiate hn_basic_Destructor as main register_shutdown_function!'.$this->lf_separator.$this->msg;
 				}
-				$this->hn_php4_destructor();
+                parent::__construct();
 			}
 			if($func!='')
 			{
@@ -558,40 +538,53 @@ class hn_basic extends hn_php4_destructor
 				if($this->debugoutput > 3 && (!$this->logfilehdl)) $this->logfile_init($match);
 				switch($this->debugoutput)
 				{
-					case 0:
-						// NO LOG OPERATIONS
+                    // 0
+					case DBG_LOG_NONE:
+						// 0 = NO LOG OPERATIONS
 						break;
-					case 1:
-						// SCREEN OUTPUT for Browser
+                    // 1
+					case DBG_LOG_HTML:
+						// 1 = SCREEN OUTPUT for Browser
 						echo "\n<br>".$this->nlreplace(htmlentities($this->msg),'<br>')."\n";
 						break;
-					case 2:
-						// SCREEN OUTPUT for CommandlineWindow
+                    // 2
+					case DBG_LOG_CMDL:
+						// 2 = SCREEN OUTPUT for CommandlineWindow
 						echo "\n".$this->msg;
 						break;
-					case 3:
-						// BROWSER SILENT OUTPUT (<!-- -->)
+                    // 3
+					case DBG_LOG_HIDE:
+						// 3 = BROWSER SILENT OUTPUT (<!-- -->)
 						echo "\n<!-- DEBUG: " . $this->msg . "-->\n";
 						break;
-					case 4:
-						// FILE OUTPUT
+                    // 4
+					case DBG_LOG_FILE:
+						// 4 = FILE OUTPUT
 						fwrite($this->logfilehdl,$this->lf_separator.$this->msg);
 						break;
-					case 5:
-						// FILE + SCREEN OUTPUT for Browser
+                    // 5
+					case (DBG_LOG_HTML + DBG_LOG_FILE):
+						// 5 = FILE + SCREEN OUTPUT for Browser
 						fwrite($this->logfilehdl,$this->lf_separator.$this->msg);
 						echo "\n<br>".$this->nlreplace(htmlentities($this->msg),'<br>')."\n";
 						break;
-					case 6:
-						// FILE + SCREEN OUTPUT for CommandlineWindow
+                    // 6
+					case (DBG_LOG_CMDL + DBG_LOG_FILE):
+						// 6 = FILE + SCREEN OUTPUT for CommandlineWindow
 						fwrite($this->logfilehdl,$this->lf_separator.$this->msg);
 						echo "\n".$this->msg;
 						break;
-					case 7:
-						// FILE + BROWSER SILENT OUTPUT (<!-- -->)
+                    // 7
+					case (DBG_LOG_HIDE + DBG_LOG_FILE):
+						// 7 = FILE + BROWSER SILENT OUTPUT (<!-- -->)
 						fwrite($this->logfilehdl,$this->lf_separator.$this->msg);
 						echo "\n<!-- DEBUG: " . $this->msg . "-->\n";
 						break;
+                    // 9
+                    case DBG_LOG_TEMP:
+                        // 9 = TEMPFILE BUFFER
+                        fwrite($this->logfilehdl, $this->lf_separator . $this->msg);
+                        break;
 				}
 				if(preg_match('/[1-3|5-7]/',$this->debugoutput))
 				{
@@ -632,7 +625,7 @@ class hn_basic extends hn_php4_destructor
 			}
 		}
 
-		/** @shortdesc logfile initiation
+		/** @shortdesc initiate logfile
 		  * @private
 		  **/
 		function logfile_init($match)
@@ -648,29 +641,50 @@ class hn_basic extends hn_php4_destructor
 				case 4: 		// only FILE OUTPUT
 				case 5: 		// FILE OUTPUT + SCREEN OUTPUT TO BROWSER
 				case 6: 		// FILE OUTPUT + SCREEN OUTPUT TO CONSOLEWINDOW
-				case 7: 		// FILE OUTPUT + SILENT OUTPUT (<!-- -->) TO BROWSER
-				$d = getdate(gmmktime());
-				$this->msg = $this->lf_separator."### ".date("d.m.Y - H:i:s")." START LOGGING ###".$this->lf_separator.$this->msg;
-				$this->logfile = $this->logfile . "_" . $d["mon"] . "-" . $d["year"] . ".txt";
-				$this->logfilehdl = @fopen($this->logfile,'a+');
-				if($this->logfilehdl===FALSE)
-				{
-					// Fallback to Debug-Output-Mode without Filewriting
-					$this->debugoutput -= 4;
-					$argh = "ERROR! UNABLE TO OPEN SPECIFIED LOG FILE ".basename($this->logfile).$this->lf_separator."- Fallback to Debug-Output-Mode without Filewriting (".(int)$this->debugoutput.")";
-					if($this->debugoutput == 0)
-						echo "<!-- $argh -->";
-					else
-						$this->msg .= $this->lf_separator.$argh;
-				}
-				else
-				{
-					$this->runOnShutdown();
-					$this->dbgtimer = new timer();
-					$this->dbgtimer->timer_start();
-					$this->msg .= $this->lf_separator.'- start timer';
-				}
-				break;
+                case 7:         // FILE OUTPUT + SILENT OUTPUT (<!-- -->) TO BROWSER
+                $d = getdate(@gmmktime());
+                $this->msg = $this->lf_separator."### ".date("d.m.Y - H:i:s")." START LOGGING ###".$this->lf_separator.$this->msg;
+                $this->logfile = $this->logfile . "_" . $d["mon"] . "-" . $d["year"] . ".txt";
+                $this->logfilehdl = @fopen($this->logfile,'a+');
+                if($this->logfilehdl===FALSE)
+                {
+                    // Fallback to Debug-Output-Mode without Filewriting
+                    $this->debugoutput -= 4;
+                    $argh = "ERROR! UNABLE TO OPEN SPECIFIED LOG FILE ".basename($this->logfile).$this->lf_separator."- Fallback to Debug-Output-Mode without Filewriting (".(int)$this->debugoutput.")";
+                    if($this->debugoutput == 0)
+                        echo "<!-- $argh -->";
+                    else
+                        $this->msg .= $this->lf_separator.$argh;
+                }
+                else
+                {
+                    $this->runOnShutdown();
+                    $this->dbgtimer = new timer();
+                    $this->dbgtimer->timer_start();
+                    $this->msg .= $this->lf_separator.'- start timer';
+                }
+                break;
+
+                case 9:         // TEMPFILE
+                    $d = getdate(@gmmktime());
+                    $this->msg = $this->lf_separator."### ".date("d.m.Y - H:i:s")." START LOGGING ###".$this->lf_separator.$this->msg;
+                    $GLOBALS['hn_basic_logfilehdl'] = new hn_php_tempfile();
+                    $this->logfilehdl = $GLOBALS['hn_basic_logfilehdl']->get_pointer();
+                    if($this->logfilehdl===FALSE) {
+                        // Fallback to Debug-Output-Mode without Filewriting
+                        $this->debugoutput = 0;
+                        $argh = "ERROR! UNABLE TO OPEN TEMP LOG FILE - Fallback to Debug-Output-Mode without Filewriting (".(int)$this->debugoutput.")";
+                        if($this->debugoutput == 0) {
+                            echo "<!-- $argh -->";
+                        } else {
+                            $this->msg .= $this->lf_separator.$argh;
+                        }
+                    } else {
+                        $this->dbgtimer = new timer();
+                        $this->dbgtimer->timer_start();
+                        $this->msg .= $this->lf_separator.'- start timer';
+                    }
+                break;
 			}
 		}
 
@@ -700,50 +714,53 @@ class hn_basic extends hn_php4_destructor
 		  * @shortdesc Func to output a better vardump. $OutputMode: 1=Browser; 2=Commandline-Window; 3=StringVar; 4=file;
 		  * @public
 		  **/
-		function my_var_dump($v,$OutputMode=2,$fn="")
-		{
-	        // Ausgabe von var_dump über Output-Buffer in Variable einlesen
-			ob_start();
-		    var_dump($v);
-			$content = ob_get_contents();
-			ob_end_clean();
+        function my_var_dump($v, $outputMode = 1, $filename = '') {
+            ob_start();
+            var_dump($v);
+            $content = ob_get_contents();
+            ob_end_clean();
 
-	        // maximale Einrueckung ermitteln
-	        $m = 0;
-	        preg_match_all('#^(.*)=>#mU', $content, $stack);
-	        $lines = $stack[1];
-	        $indents = array_map('strlen', $lines);
-			if($indents) $m = max($indents) + 1;
+            $m = 0;
+            preg_match_all('#^(.*)=>#mU', $content, $stack);
+            $lines = $stack[1];
+            $indents = array_map('strlen', $lines);
+            if($indents) $m = max($indents) + 1;
+            $content = preg_replace_callback(
+                '#^(.*)=>\\n\s+(\S)#Um',
+                function($match) use ($m) {
+                    return $match[1] . str_repeat(' ', ($m - strlen($match[1]) > 1 ? $m - strlen($match[1]) : 1)) . $match[2];
+                },
+                $content
+            );
+            $content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
+            $content = str_replace(array('<pre>', '</pre>'), '', $content);
 
-	        // Ausgabe von var_dump() an maximaler Einrueckung ausrichten
-            $content = @preg_replace('#^(.*)=>\\n\s+(\S)#eUm', '"\\1" .str_repeat(" ", $m - strlen("\\1")>1 ? $m - strlen("\\1") : 1). "\\2"', $content);
-
-	        // bei Array-Strukturen oeffnende Klammer { in neue Zeile
-			$content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
-
-			// pre tags entfernen
-			$content = str_replace(array('<pre>','</pre>'),'',$content);
-
-            switch($OutputMode)
-            {
+            switch($outputMode) {
                 case 1:
                     // Output to Browser-Window
-                    echo '<pre style=" margin:10px 10px 10px; padding:10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:\'Source Code Pro\', \'Lucida Console\', \'Courier\', monospace; font-size:12px; line-height:15px; overflow:visible;">'.$content.'</pre>';
+                    echo "<pre style=\"margin:10px 10px 10px; padding:10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:visible;\">{$content}</pre>";
                     break;
                 case 2:
                     // Output to Commandline-Window or to Browser as hidden comment
-                    echo isset($_SERVER['HTTP_HOST']) ? "\n<!--\n".$content."\n-->\n" : $content."\n";
+                    echo isset($_SERVER['HTTP_HOST']) ? ("\n<!--\n".$content."\n-->\n") : ($content."\n");
                     break;
                 case 3:
                     // Output into a StringVar
-                    return '<pre style=" margin: 10px 10px 10px; padding: 10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border: 1px solid #333; font-family:\'Source Code Pro\', \'Lucida Console\', \'Courier\', monospace; font-size:12px; line-height:15px; overflow: visible;">'.$content.'</pre>';
+                    return "<pre style=\"margin: 10px 10px 10px; padding: 10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border: 1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow: visible;\">{$content}</pre>";
                     break;
                 case 4:
                     // Output into a file, if a valid filename is given and we have write access to it
-                    return $this->string2file(str_replace(array('&gt;','&quot;','&#10;'), array('>','"',''), strip_tags($content)),$fn,TRUE);
+                    @touch($filename);
+                    if(is_writable($filename)) {
+                        $content = str_replace(array('&gt;','&quot;','&#10;'), array('>','"',''), strip_tags($content));
+                        $res = file_put_contents($filename, $content, FILE_APPEND);
+                        wireChmod($filename);
+                        return $res === strlen($content);
+                    }
+                    return false;
                     break;
             }
-		}
+        }
 
 
 
@@ -1078,6 +1095,7 @@ class hn_basic extends hn_php4_destructor
 			  **/
 			function hn_is_dir($dir)
 			{
+                if(!is_string($dir)) return false;
 				$dir = $this->noTrailingSlash($dir);
 				// checken ob der uebergebene string ein Dir ist auf dem lokalen Rechner, ...
 				if(@is_dir($dir))
@@ -1101,6 +1119,7 @@ class hn_basic extends hn_php4_destructor
 
 			function noTrailingSlash($dir)
 			{
+                if(!is_string($dir)) return $dir;
 				$dir = $this->noBacks($dir);
 				return substr($dir,strlen($dir)-1,1)=='/' ? substr($dir,0,strlen($dir)-1) : $dir;
 			}
@@ -2141,21 +2160,20 @@ class hn_basic extends hn_php4_destructor
 		 *
 		 * returns an associative array (keys: R,G,B) from html code (e.g. #3FE5AA)
 		 **/
-		function ConvertColor($color="#000000")
-		{
+		function ConvertColor($color = "#000000") {
 			//W3C approved color array (disabled)
 			//static $common_colors = array('black'=>'#000000','silver'=>'#C0C0C0','gray'=>'#808080', 'white'=>'#FFFFFF','maroon'=>'#800000','red'=>'#FF0000','purple'=>'#800080','fuchsia'=>'#FF00FF','green'=>'#008000','lime'=>'#00FF00','olive'=>'#808000','yellow'=>'#FFFF00','navy'=>'#000080', 'blue'=>'#0000FF','teal'=>'#008080','aqua'=>'#00FFFF');
 			//All color names array
 			static $common_colors = array('antiquewhite'=>'#FAEBD7','aquamarine'=>'#7FFFD4','beige'=>'#F5F5DC','black'=>'#000000','blue'=>'#0000FF','brown'=>'#A52A2A','cadetblue'=>'#5F9EA0','chocolate'=>'#D2691E','cornflowerblue'=>'#6495ED','crimson'=>'#DC143C','darkblue'=>'#00008B','darkgoldenrod'=>'#B8860B','darkgreen'=>'#006400','darkmagenta'=>'#8B008B','darkorange'=>'#FF8C00','darkred'=>'#8B0000','darkseagreen'=>'#8FBC8F','darkslategray'=>'#2F4F4F','darkviolet'=>'#9400D3','deepskyblue'=>'#00BFFF','dodgerblue'=>'#1E90FF','firebrick'=>'#B22222','forestgreen'=>'#228B22','gainsboro'=>'#DCDCDC','gold'=>'#FFD700','gray'=>'#808080','green'=>'#008000','greenyellow'=>'#ADFF2F','hotpink'=>'#FF69B4','indigo'=>'#4B0082','khaki'=>'#F0E68C','lavenderblush'=>'#FFF0F5','lemonchiffon'=>'#FFFACD','lightcoral'=>'#F08080','lightgoldenrodyellow'=>'#FAFAD2','lightgreen'=>'#90EE90','lightsalmon'=>'#FFA07A','lightskyblue'=>'#87CEFA','lightslategray'=>'#778899','lightyellow'=>'#FFFFE0','limegreen'=>'#32CD32','magenta'=>'#FF00FF','mediumaquamarine'=>'#66CDAA','mediumorchid'=>'#BA55D3','mediumseagreen'=>'#3CB371','mediumspringgreen'=>'#00FA9A','mediumvioletred'=>'#C71585','mintcream'=>'#F5FFFA','moccasin'=>'#FFE4B5','navy'=>'#000080','olive'=>'#808000','orange'=>'#FFA500','orchid'=>'#DA70D6','palegreen'=>'#98FB98','palevioletred'=>'#D87093','peachpuff'=>'#FFDAB9','pink'=>'#FFC0CB','powderblue'=>'#B0E0E6','red'=>'#FF0000','royalblue'=>'#4169E1','salmon'=>'#FA8072','seagreen'=>'#2E8B57','sienna'=>'#A0522D','skyblue'=>'#87CEEB','slategray'=>'#708090','springgreen'=>'#00FF7F','tan'=>'#D2B48C','thistle'=>'#D8BFD8','turquoise'=>'#40E0D0','violetred'=>'#D02090','white'=>'#FFFFFF','yellow'=>'#FFFF00');
 			//http://www.w3schools.com/css/css_colornames.asp
-			if ( ($color{0} != '#') and ( strstr($color,'(') === false ) ) $color = $common_colors[strtolower($color)];
+			if ( (substr($color, 0, 1) != '#') and ( strstr($color, '(') === false ) ) $color = $common_colors[strtolower($color)];
 
-			if($color{0} == '#') //case of #nnnnnn or #nnn
+			if(substr($color, 0, 1) == '#') //case of #nnnnnn or #nnn
 			{
 				$cor = strtoupper($color);
 				if(strlen($cor) == 4) // Turn #RGB into #RRGGBB
 				{
-					$cor = "#" . $cor{1} . $cor{1} . $cor{2} . $cor{2} . $cor{3} . $cor{3};
+					$cor = "#" . substr($cor, 0, 1) . substr($cor, 0, 1) . substr($cor, 1, 1) . substr($cor, 1, 1) . substr($cor, 2, 1) . substr($cor, 2, 1);
 				}
 				$R = substr($cor, 1, 2);
 				$vermelho = hexdec($R);
@@ -2262,15 +2280,13 @@ class hn_basic extends hn_php4_destructor
 
 // <<< NEW-METHODS: MEMORY-USAGE  [13.10.2011 - 13:40:57] //
 
-
-
-} // end class hn_basic
-
-}
+}} // end class hn_basic
 
 
 
-if( ! class_exists('hn_path_object') )
+
+
+if( !class_exists('hn_path_object') && !class_exists('ProcessWire\hn_path_object') )
 {
 	/**
 	* CLASS hn_path_object
@@ -2555,7 +2571,7 @@ if( ! class_exists('hn_path_object') )
 
 
 
-if( ! class_exists('xip') )
+if( ! class_exists('xip') && ! class_exists('ProcessWire\xip') )
 {
 	/*****
 	 XIP Class - Proxy Detection and IP Functions class for PHP - File Name: class.XIP.php
@@ -2644,10 +2660,10 @@ if( ! class_exists('xip') )
 	     $MNbase = 0;
 
 	     //INTERNAL USE - constants for "HeaderType" array value
-	     define("XIP_HT_None",++$MNbase,true); //Header value contains no readable information about proxy or client
-	     define("XIP_HT_PName",++$MNbase,true); //Header value contains proxy name/version
-	     define("XIP_HT_PInfo",++$MNbase,true); //Header value contains other info about proxy (reserved)
-	     define("XIP_HT_ClientIP",++$MNbase,true); //Header value contains client IP
+	     define("XIP_HT_None",++$MNbase); //Header value contains no readable information about proxy or client
+	     define("XIP_HT_PName",++$MNbase); //Header value contains proxy name/version
+	     define("XIP_HT_PInfo",++$MNbase); //Header value contains other info about proxy (reserved)
+	     define("XIP_HT_ClientIP",++$MNbase); //Header value contains client IP
 
 
 	class xip
@@ -2918,8 +2934,7 @@ if( ! class_exists('xip') )
 	    *   No need to call any functions later for IP detection or proxy detection (see example files)
 	    *   However you can call some IP fuctions if you need
 	    */
-		function XIP()
-		{
+		function __construct() {
 			$remote_adress = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
 			//INTERNAL USE - Some temporary variables used internally, do not touch...
 			$ips = '';
@@ -3022,18 +3037,14 @@ if( ! class_exists('xip') )
 	}
 } // end class XIP
 
-if( ! function_exists('hn_get_xip') )
+if( ! function_exists('hn_get_xip') && !function_exists('ProcessWire\hn_get_xip') )
 {
-	function hn_get_xip( $html=false )
-	{
+	function hn_get_xip($html = false) {
 		$xip = new xip();
-		if( $xip->IP['client'] === $xip->IP['proxy'] )
-		{
+		if($xip->IP['client'] === $xip->IP['proxy']) {
 			# es wurde kein Proxy benutzt / erkannt
 			$res = 'IP-client: ' . $xip->IP['client'] . ' ('. ( $xip->IP['client']==null ? 'NULL' : gethostbyaddr($xip->IP['client']) ) .')';
-		}
-		else
-		{
+		} else {
 			$res = 'IP-client: ' . $xip->IP['client'] . ' ('. ( $xip->IP['client']==null ? 'NULL' : gethostbyaddr($xip->IP['client']) ) .') | IP-proxy: ' . $xip->IP['proxy'] . ' ('. ( $xip->IP['proxy']==null ? 'NULL' : gethostbyaddr($xip->IP['proxy']) ) .') | '."\n - all (" . $xip->IP['all'] . ") - ";
 		}
 		unset($xip);

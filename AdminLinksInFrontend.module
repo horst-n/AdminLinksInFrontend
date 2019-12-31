@@ -17,8 +17,9 @@
 *  ChangeLog:
 *             1.1.0     fixed a bug in method sanitizeColor(), added detection for UI-Kit-Preview
 *             1.1.1     added detection and a toggle button for TracyDebugger (enable/disable)
-*             1.1.2     more security for User-Switcher, (stays in for cases, where TracyDebugger isn't available)
-*
+*             1.1.2     more security for UA-Switcher, (stays in for cases, where TracyDebugger isn't available)
+*             1.1.3     
+*             1.1.4     fixed PHP 7.4 deprecated code parts
 */
 
 class AdminLinksInFrontend extends WireData implements Module, ConfigurableModule {
@@ -36,7 +37,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '1.1.2',
+            'version'  => '1.1.4',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -163,8 +164,8 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         $this->CLASS = str_replace('ProcessWire', '', __CLASS__);
         self::$pwv = wire('config')->version;
         if(function_exists('opcache_get_status') && version_compare(PHP_VERSION, '5.4.0', '>')) {
-            self::$opcEnabled = opcache_get_status();
-            self::$opcEnabled = self::$opcEnabled['opcache_enabled'];
+            $opc = opcache_get_status();
+            self::$opcEnabled = $opc['opcache_enabled'];
         }
     }
 
@@ -301,7 +302,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             if($this->modules->isInstalled('ProCache') && 'admin' != $this->page->template) {
                 $this->pages->addHookAfter("ProCache::allowCacheForPage", $this, 'hookAfterProCacheAllowCacheForPage');
             }
-            $this->alifUasLockfilename = $this->uas_getFilename();
         }
     }
 
@@ -316,7 +316,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     }
 
 
-
     // Hooks
     public function hookBeforeProcessLogin(HookEvent $event) {
         if(!$this->input->get('switchUA')) return;
@@ -324,16 +323,15 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         $this->needRedirectAfterSwitch = $this->input->get('alifRedirectIn') ? $this->sanitizer->url($this->input->get('alifRedirectIn')) : '';
         // validate UAS Session User
         $this->alifWasLoggedinAsSuperuser = $this->session->get('alifWasLoggedinAsSuperuser') && $this->uas_isValidSessionUser();
-        if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->alifUasLockfilename)) {
-            $this->session->set('alifUasLockfilename', '');
-        }
+if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->alifUasLockfilename)) {
+    $this->session->set('alifUasLockfilename', '');
+}
         if($this->hookSwitchUser()) {
             $this->session->redirect($this->needRedirectAfterSwitch);
         }
     }
 
     public function hookBeforeProcessLogout(HookEvent $event) {
-        if(!$this->user->isLoggedin()) return;
         if($this->input->get('destroySession') && 'destroySession' == $this->input->get('destroySession')) {
             $this->needRedirectAfterSwitch = $this->input->get('alifRedirectOut') ? $this->sanitizer->url($this->input->get('alifRedirectOut')) : '';
             $this->uas_destroy();
@@ -342,9 +340,13 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             }
             return;
         }
+        if(!$this->user->isLoggedin()) return;
         if(!$this->input->get('alifRedirectOut')) return;
         $this->needRedirectAfterSwitch = $this->input->get('alifRedirectOut') ? $this->sanitizer->url($this->input->get('alifRedirectOut')) : '';
         $this->alifWasLoggedinAsSuperuser = $this->session->get('alifWasLoggedinAsSuperuser') && $this->uas_isValidSessionUser();
+        if($this->alifWasLoggedinAsSuperuser) {
+            $this->alifUasLockfilename = $this->session->get('alifUasLockfilename');
+        }
         $this->session->logout();
         if(!$this->needRedirectAfterSwitch) return;
         $this->session->redirect($this->needRedirectAfterSwitch);
@@ -355,7 +357,9 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             // restore session setting with guest account
             if($this->alifWasLoggedinAsSuperuser) {
                 $event->object->set('alifWasLoggedinAsSuperuser', true);
-                $event->object->set('alifUasLockfilename', $this->alifUasLockfilename);
+                if($this->alifUasLockfilename) {
+                    $event->object->set('alifUasLockfilename', $this->alifUasLockfilename);
+                }
             }
         }
         if((bool)$this->data['use_advanced_links']) {
@@ -368,7 +372,9 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if($this->alifWasLoggedinAsSuperuser) {
             $event->object->set('alifWasLoggedinAsSuperuser', true);
             $event->object->set('SuppressDBautoBackup', true);
-            $event->object->set('alifUasLockfilename', $this->alifUasLockfilename);
+            if($this->alifUasLockfilename) {
+                $event->object->set('alifUasLockfilename', $this->alifUasLockfilename);
+            }
         }
         $event->object->remove('alifWasLoggedin');
     }
@@ -386,9 +392,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         $ua = $this->sanitizer->pageName($this->input->get('switchUA'));
         // to become guest, only log out the current user
         if('guest' == $ua) {
-            if($this->user->isLoggedin()) {
-                $this->session->logout();
-            }
+            if($this->user->isLoggedin()) $this->session->logout();
             return true;
         }
         // before trying to login, check if it is a valid request
@@ -398,7 +402,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         }
         // login as a new user
         if($this->user->isLoggedin()) {
-            #$this->session->logout();
+            $this->session->logout();
         }
         $u = $this->session->forceLogin($ua);
         return (is_object($u) && $u instanceof User) ? true : false;
@@ -409,7 +413,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     // UAS security
     private function uas_start() {
         if(!$this->uas_isValidSuperuser()) return false;
-        $this->uas_deleteSessionfiles();
         $time = time();
         $ttl = (int)$this->data['uas_session_duration'];
         $ttl = $ttl >= 2 && $ttl <= 60 ? $ttl : 2;
@@ -419,13 +422,12 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
     }
 
     private function uas_destroy() {
-        $this->uas_deleteSessionfiles();
+        @unlink($this->uas_getFilename());
         $this->alifWasLoggedinAsSuperuser = false;
         $this->session->remove('alifWasLoggedinAsSuperuser');
         if($this->user->isLoggedin()) $this->session->logout();
         $this->session->remove('alifWasLoggedin');
         $this->session->remove('alifWasLoggedinAsSuperuser');
-        $this->session->remove('alifUasLockfilename');
     }
 
     private function uas_sessionTimeToLive() {
@@ -446,7 +448,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         $data = unserialize(file_get_contents($file));
         if($this->uas_getFingerprint() != $data['fingerprint']) return false;
         if($data['endtime'] <= time()) {
-            $this->uas_deleteSessionfiles();
+            @unlink($file);
             return false;
         }
         return true;
@@ -470,31 +472,29 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         // this is an initial call, we create a random filename for the lockfile
         @require_once(dirname(__FILE__) . '/libs/php_random_polyfills/random.php');
         try {
-            $randomName = bin2hex(random_bytes(32));
-        } catch (TypeError $e) {  // This is okay, so long as `Error` is caught before `Exception`.
-            $randomName = '';
-        } catch (Error $e) {      // This is required, if you do not need to do anything just rethrow.
-            $randomName = '';
-        } catch (Exception $e) {  // This is optional and maybe omitted if you do not want to handle errors during generation.
-            $randomName = '';
+            $randomName1 = bin2hex(random_bytes(16));
+        } catch (TypeError $e) {
+            // This is okay, so long as `Error` is caught before `Exception`.
+        } catch (Error $e) {
+            // This is required, if you do not need to do anything just rethrow.
+            $randomName1 = md5(time());
+        } catch (Exception $e) {
+            // This is optional and maybe omitted if you do not want to handle errors
+            // during generation.
+            $randomName1 = md5(time());
         }
-        if('' == $randomName) {
-            if(function_exists('openssl_random_pseudo_bytes')) {
-                $randomName = bin2hex(openssl_random_pseudo_bytes(32));
-            } else {
-                foreach(array('dbHost', 'dbName', 'dbPass', 'userAuthSalt', 'dbUser', 'timezone', 'dbPort') as $s) {
-                    $randomName .= $this->config->$s;
-                }
-                $randomName .= implode('', $this->config->httpHosts);
-                $randomName = substr(strval(md5($randomName) . md5(strval(time()) . $randomName) . md5(time())), rand(1,30), 64);
-            }
+        try {
+            $randomName2 = bin2hex(random_bytes(5));
+        } catch (Error $e) {
+            $randomName2 = '';
+        } catch (Exception $e) {
+            $randomName2 = '';
         }
-        $tmpDir = new WireTempDir('alif_uas');
+        $tmpDir = new WireTempDir($randomName1);
         $tmpDir->setMaxAge($ttl * 60);  // $ttl comes in as minutes, must be converted to seconds
         $tmpDir->setRemove(false);
-        $filename = $tmpDir->get() . $randomName;
+        $filename = $tmpDir->get() . $randomName2 . '_' . self::$lockfile;
         @touch($filename);
-        $this->alifUasLockfilename = $filename;
         $this->session->set('alifUasLockfilename', $filename);
         return $this->session->get('alifUasLockfilename');
     }
@@ -528,11 +528,6 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             }
         }
     }
-
-    private function uas_deleteSessionfiles() {
-        @unlink($this->uas_getFilename());
-    }
-
 
 
 
@@ -604,7 +599,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             case 'use_advanced_links':      // checkboxes
             case 'user_accounts_extrarow':
                 $v = strval($v);
-                if('' != $v && '1' != $v) continue;
+                if('' != $v && '1' != $v) break;
                 $isValid = true;
                 break;
             case 'use_user_switcher':       // reset this checkbox to unselected
@@ -614,22 +609,22 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
 
             case 'position_tb':             // static required selects
                 $v = strval($v);
-                if('top' != $v && 'bottom' != $v) continue;
+                if('top' != $v && 'bottom' != $v) break;
                 $isValid = true;
                 break;
             case 'position_lr':
                 $v = strval($v);
-                if('left' != $v && 'right' != $v) continue;
+                if('left' != $v && 'right' != $v) break;
                 $isValid = true;
                 break;
             case 'stacked':
                 $v = strval($v);
-                if('horizontal' != $v && 'vertical' != $v) continue;
+                if('horizontal' != $v && 'vertical' != $v) break;
                 $isValid = true;
                 break;
             case 'colorset':
                 $v = strval($v);
-                if(!in_array($v, array('skin1', 'skin2', 'skin3', 'skin4'))) continue;
+                if(!in_array($v, array('skin1', 'skin2', 'skin3', 'skin4'))) break;
                 $isValid = true;
                 break;
 
@@ -659,7 +654,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
                 break;
 
             case 'admin_ip':                  // IP adress
-                if('' != $v && filter_var($this->data['admin_ip'], FILTER_VALIDATE_IP) === false) continue;
+                if('' != $v && filter_var($this->data['admin_ip'], FILTER_VALIDATE_IP) === false) break;
                 $isValid = true;
                 break;
 
@@ -670,7 +665,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
                     $v = '0';
                     $isValid = true;
                 } else {
-                    if(!preg_match('/(\d)(px|rem|%|em)/i', $v)) continue;
+                    if(!preg_match('/(\d)(px|rem|%|em)/i', $v)) break;
                     $isValid = true;
                 }
                 break;
@@ -742,10 +737,10 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
             // test for #HexColor
             if(preg_match('/^(#*[a-f0-9]{3}([a-f0-9]{3})?)$/i', $value)) {
                 if(3 == strlen($value) || 6 == strlen($value)) $value = '#' . $value;
-                if($value{0} == '#') { //case of #nnnnnn or #nnn
+                if(substr($value, 0, 1) == '#') { //case of #nnnnnn or #nnn
                     $c = strtoupper($value);
                     if(strlen($c) == 4) { // Turn #RGB into #RRGGBB
-                        $c = "#" . $c{1} . $c{1} . $c{2} . $c{2} . $c{3} . $c{3};
+                        $c = "#" . substr($c, 0, 1) . substr($c, 0, 1) . substr($c, 1, 1) . substr($c, 1, 1) . substr($c, 2, 1) . substr($c, 2, 1);
                     }
                     $color = array();
                     $color[0] = hexdec(substr($c, 1, 2));
@@ -1451,6 +1446,20 @@ div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
         return $form;
     }
 
+    private function checkModalParent() {
+        return "\n<script type='text/javascript'>
+    function ALIFcheckParent() {
+        if(self == top) return;
+        if(parent.document.body.classList.contains('template-admin')) {
+            var ALIF = document.getElementById('ALIFadminLinksContainer');
+            ALIF.style.display = 'none';
+        }
+    };
+    document.body.onload = ALIFcheckParent();
+</script>\n";
+    }
+
+
     private function renderDimensionsDisplay() {
         $customContentContainerID = isset($this->data['cccID']) ? trim($this->data['cccID']) : '';
         return "\n<script type='text/javascript'>
@@ -1654,8 +1663,9 @@ div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
         $replace[] = $data['position_lr_px'];
         $replace[] = $data['zindex'];
         $replace[] = strval(intval($data['zindex'] - 1));
-        $replace[] = '0';
-        $replace[] = '0';
+        $replace[] = '32px';
+        $replace[] = '32px';
+
         $fill = 'fill%3Argb(' . implode(',', array_values(self::sanitizeColor($skin['_color']))) . ')';
         $search[] = 'fill%3Argb(255,255,255)';
         $replace[] = $fill;
@@ -1681,7 +1691,8 @@ div#ALIFdimensionsDisplay a.ALIFddSwitcher:hover {cursor:pointer}
         $class = $data['stacked'] == 'horizontal' ? 'horizontal' : 'vertical';
         $class .= 'right' == $data['position_lr'] ? ' right' : '';
         $adminLinks = "<div id='ALIFadminLinksContainer' class='{$class}'>" . $adminLinks . "</div>\n";
-        return "\n<!-- AdminLinks -->\n<style type=\"text/css\">\n{$css}\n</style>\n{$adminLinks}\n" . ($dimensions ? $this->renderDimensionsDisplay() . "\n<!-- AdminLinks -->\n" : '');
+        $checkModalParent = $this->checkModalParent();
+        return "\n<!-- AdminLinks -->\n<style type=\"text/css\">\n{$css}\n</style>\n{$adminLinks}\n" . $checkModalParent . ($dimensions ? $this->renderDimensionsDisplay() : '') . "\n<!-- AdminLinks -->\n";
     }
 
 }
