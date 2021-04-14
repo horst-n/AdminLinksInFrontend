@@ -20,6 +20,7 @@
 *             1.1.2     more security for UA-Switcher, (stays in for cases, where TracyDebugger isn't available)
 *             1.1.3     
 *             1.1.4     fixed PHP 7.4 deprecated code parts
+*             1.1.5     fixed a color conversion bug
 */
 
 class AdminLinksInFrontend extends WireData implements Module, ConfigurableModule {
@@ -37,7 +38,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '1.1.4',
+            'version'  => '1.1.5',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -740,12 +741,14 @@ if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->al
                 if(substr($value, 0, 1) == '#') { //case of #nnnnnn or #nnn
                     $c = strtoupper($value);
                     if(strlen($c) == 4) { // Turn #RGB into #RRGGBB
-                        $c = "#" . substr($c, 0, 1) . substr($c, 0, 1) . substr($c, 1, 1) . substr($c, 1, 1) . substr($c, 2, 1) . substr($c, 2, 1);
+                        $c = "#" . substr($c, 1, 1) . substr($c, 1, 1) . substr($c, 2, 1) . substr($c, 2, 1) . substr($c, 3, 1) . substr($c, 3, 1);
                     }
                     $color = array();
+                    //if(ctype_xdigit(substr($c, 1, 2)) && ctype_xdigit(substr($c, 3, 2)) && ctype_xdigit(substr($c, 5, 2))) {
                     $color[0] = hexdec(substr($c, 1, 2));
                     $color[1] = hexdec(substr($c, 3, 2));
                     $color[2] = hexdec(substr($c, 5, 2));
+                    //}
                 }
             } else if(preg_match('/^rgba?\(\d+,\d+,\d+,?\d?\.?\d*\)$/i', str_replace(' ', '', trim($value)))) { //case of RGB(r,g,b) or rgba(r,g,b,a)
                 $value = str_replace(
