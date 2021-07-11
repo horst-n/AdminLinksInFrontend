@@ -27,7 +27,7 @@ class ProcessAdminLinksInFrontend extends Process {
         if(version_compare(self::$pwv, self::$pwvRequires, '>')) $requires .= ', ProcessWire>=2.3.0, PHP>=5.4.0';
         $info = array(
             'title'      => 'ALIF - Admin Links In Frontend :: OPCache Viewer',
-            'version'    => '1.0.0',
+            'version'    => '1.0.1',
             'author'     => 'Horst Nogajski',
             'summary'    => $summary,
             'singular'   => true,
@@ -42,7 +42,8 @@ class ProcessAdminLinksInFrontend extends Process {
     public function __construct() {
         self::$pwv = wire('config')->version;
         if(function_exists('opcache_get_status') && version_compare(PHP_VERSION, '5.4.0', '>')) {
-            self::$opcEnabled = opcache_get_status()['opcache_enabled'];
+            $opc = opcache_get_status();  // returns false if opcache isn't installed
+            self::$opcEnabled = $opc && $opc['opcache_enabled'];
         }
     }
 
