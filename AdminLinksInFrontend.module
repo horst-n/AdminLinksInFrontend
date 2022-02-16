@@ -22,6 +22,7 @@
 *             1.1.4     fixed PHP 7.4 deprecated code parts
 *             1.1.5     fixed a color conversion bug
 *             1.1.6     fixed a warning with detecting if opcache is available or not
+*             1.1.7     fixed PHP 8.1 deprecated code in line around 436: is_readable($file) with null value
 */
 
 class AdminLinksInFrontend extends WireData implements Module, ConfigurableModule {
@@ -39,7 +40,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '1.1.6',
+            'version'  => '1.1.7',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -434,7 +435,7 @@ if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->al
 
     private function uas_sessionTimeToLive() {
         $file = $this->uas_getFilename();
-        if(!is_readable($file)) return 'N/A';
+        if(is_null($file) || !is_readable($file)) return 'N/A';
         $data = unserialize(file_get_contents($file));
         return strval(ceil(((int)$data['endtime'] - time()) / 60));
     }
