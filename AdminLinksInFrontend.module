@@ -23,7 +23,7 @@
 *             1.1.5     fixed a color conversion bug
 *             1.1.6     fixed a warning with detecting if opcache is available or not
 *             1.1.7     fixed PHP 8.1 deprecated code in line around 436: is_readable($file) with null value
-*             1.1.8     fixed PHP 8.1 deprecated code:
+*             1.1.8     fixed PHP 8.2 deprecated code:
 */
 
 class AdminLinksInFrontend extends WireData implements Module, ConfigurableModule {
