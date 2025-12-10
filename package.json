@@ -1,0 +1,27 @@
+{
+  "name": " ALIF - Admin Links In Frontend @ rev-2 ",
+  "version": " 1.2.0 ",
+  "description": "",
+  "main": "",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/horst-n/AdminLinksInFrontend"
+  },
+  "keywords": [
+    "Processwire",
+    "Processwire Module",
+    "PHP"
+  ],
+  "author": "Horst Nogajski",
+  "license": "",
+  "bugs": {
+    "url": ""
+  },
+  "homepage": "",
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

@@ -25,6 +25,7 @@
 *             1.1.7     fixed PHP 8.1 deprecated code in line around 436: is_readable($file) with null value
 *             1.1.8     fixed PHP 8.2 deprecated code
 *             1.1.9     fixed PHP 8.1 deprecated code: is_readable($file) with null value
+*             1.2.0     created self::isReadable($filename) to fix PHP 8.3 deprecations
 */
 
 class AdminLinksInFrontend extends WireData implements Module, ConfigurableModule {
@@ -42,7 +43,7 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         if(version_compare(self::$pwv, self::$pwvUAS, '<')) $summary = __('Adds a customizable toolbar to the front-end, including buttons like admin link, edit page and more!');
         $info = array(
             'title'    => 'ALIF - Admin Links In Frontend',
-            'version'  => '1.1.9',
+            'version'  => '1.2.0',
             'author'   => 'Horst Nogajski',
             'summary'  => $summary,
             'singular' =>  true,
@@ -328,11 +329,9 @@ class AdminLinksInFrontend extends WireData implements Module, ConfigurableModul
         $this->needRedirectAfterSwitch = $this->input->get('alifRedirectIn') ? $this->sanitizer->url($this->input->get('alifRedirectIn')) : '';
         // validate UAS Session User
         $this->alifWasLoggedinAsSuperuser = $this->session->get('alifWasLoggedinAsSuperuser') && $this->uas_isValidSessionUser();
-// PHP-8 updates >>>
-if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->alifUasLockfilename)) {
+        if(isset($this->session->alifUasLockfilename) && !self::isReadable($this->session->alifUasLockfilename)) {
     $this->session->set('alifUasLockfilename', '');
 }
-// <<< PHP-8 updates
         if($this->hookSwitchUser()) {
             $this->session->redirect($this->needRedirectAfterSwitch);
         }
@@ -439,9 +438,7 @@ if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->al
 
     private function uas_sessionTimeToLive() {
         $file = $this->uas_getFilename();
-// PHP-8 updates >>>
-        if(is_null($file) || !is_readable($file)) return 'N/A';
-// <<< PHP-8 updates
+        if(!self::isReadable($file)) return 'N/A';
         $data = unserialize(file_get_contents($file));
         return strval(ceil(((int)$data['endtime'] - time()) / 60));
     }
@@ -453,9 +450,7 @@ if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->al
 
     private function uas_isValidSessionUser() {
         $file = $this->uas_getFilename();
-// PHP-8 updates >>>
-        if(is_null($file) || !is_readable($file)) return false;
-// <<< PHP-8 updates
+        if (!self::isReadable($file)) return false;
         $data = unserialize(file_get_contents($file));
         if($this->uas_getFingerprint() != $data['fingerprint']) return false;
         if($data['endtime'] <= time()) {
@@ -718,7 +713,16 @@ if(isset($this->session->alifUasLockfilename) && !is_readable($this->session->al
 
 
 
-    // helpers
+    // HELPERS //
+
+    // self::isReadable($filename)
+    private static function isReadable($filename) {
+        if (null == $filename || is_null($filename)) return false;
+        if (0 == strlen(trim($filename))) return false;
+        if (!is_file($filename) || !is_readable($filename)) return false;
+        return true;
+    }
+
     private static function writeModuleConfigData($classname, &$data) {
         $logs = wire('config')->logs;                              // get current log status
         if(!is_array($logs) && !isset($logs['modules'])) {
